@@ -145,6 +145,24 @@ T["Config"]["default show_stderr is false"] = function()
   test_util.assert_equals(false, show_stderr)
 end
 
+T["Config"]["default folds are disabled"] = function()
+  child.lua([[require("curl").setup({})]])
+  local folds_enabled = child.lua_get([[require("curl.config").get("folds").enabled]])
+
+  test_util.assert_equals(false, folds_enabled)
+end
+
+T["Config"]["can configure folds"] = function()
+  child.lua([[require("curl").setup({ folds = { enabled = true, mode = "markdown_headers", start_open = true } })]])
+  local folds_enabled = child.lua_get([[require("curl.config").get("folds").enabled]])
+  local folds_mode = child.lua_get([[require("curl.config").get("folds").mode]])
+  local folds_start_open = child.lua_get([[require("curl.config").get("folds").start_open]])
+
+  test_util.assert_equals(true, folds_enabled)
+  test_util.assert_equals("markdown_headers", folds_mode)
+  test_util.assert_equals(true, folds_start_open)
+end
+
 T["Config"]["can include stderr in output when configured"] = function()
   child.lua([[require("curl").setup({ open_with = "split", show_stderr = true })]])
 

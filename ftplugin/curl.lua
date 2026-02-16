@@ -17,6 +17,8 @@ vim.api.nvim_create_autocmd({ "InsertLeave", "TextChanged" }, {
 	nested = true,
 })
 
+require("curl.folds").setup_window()
+
 vim.treesitter.language.register("bash", "curl")
 local bash_lang_installed, _ = pcall(vim.treesitter.get_parser, 0, "bash")
 if bash_lang_installed then

@@ -137,6 +137,17 @@ Or if you use [Lazy](https://github.com/folke/lazy.nvim), just pass the table in
   -- use "vertical" for vertical split (default)
   -- use "horizontal" for horizontal split
   output_split_direction = "vertical",
+  -- Optional folds in .curl buffers
+  folds = {
+    -- Enable markdown-style header folds
+    enabled = false,
+    -- Currently only markdown_headers is supported
+    mode = "markdown_headers",
+    -- Start with folds open
+    start_open = true,
+    -- Header detection pattern
+    header_pattern = "^%s*#+%s+",
+  },
   mappings = {
     execute_curl = "<CR>"
   }
@@ -153,6 +164,22 @@ Opening any file with the ".curl" file extension will activate this plugins feat
 You will get some syntax highlighting and the ability to execute curl commands from you buffer.
 Since any ".curl" file will work, you can manage your own collection instead of using the builtin
 system, and even check in files to your repository.
+
+### 💪 Header folds
+
+You can enable markdown-style folds for meaningful sections (for example `### Sync` / `### Auth`).
+Folds start at heading comments and continue until the next heading.
+
+```lua
+require("curl").setup({
+  folds = {
+    enabled = true,
+    mode = "markdown_headers",
+    start_open = true,
+    header_pattern = "^%s*#+%s+",
+  },
+})
+```
 
 ### 💪 Formatting
 

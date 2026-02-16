@@ -25,4 +25,18 @@ T["Curl files"]["can execute and automatically open buffer"] = function()
   test_util.assert_equals("<Cmd>lua require('curl.api').execute_curl()<CR>", keymap.rhs, "Should bind curl execute")
 end
 
+T["Curl files"]["can enable markdown header folds from config"] = function()
+  child.lua([[require("curl").setup({ folds = { enabled = true, mode = "markdown_headers", start_open = true } })]])
+  child.cmd("e folds_test.curl")
+  child.api.nvim_buf_set_lines(0, 0, -1, false, { "### Block", "curl https://example.com" })
+
+  local foldmethod = child.api.nvim_get_option_value("foldmethod", { win = 0 })
+  local foldexpr = child.api.nvim_get_option_value("foldexpr", { win = 0 })
+  local foldlevel = child.api.nvim_get_option_value("foldlevel", { win = 0 })
+
+  test_util.assert_equals("expr", foldmethod, "Should configure expr folds")
+  test_util.assert_equals("v:lua.require'curl.folds'.foldexpr(v:lnum)", foldexpr, "Should configure fold expression")
+  test_util.assert_equals(99, foldlevel, "Should keep folds open by default")
+end
+
 return T

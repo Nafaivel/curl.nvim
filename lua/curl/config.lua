@@ -12,6 +12,17 @@ local default_config = {
 	open_with = "tab", -- tab or (v)split or buffer
 	---@type "vertical"|"horizontal"
 	output_split_direction = "vertical", -- how to split the output buffer
+	---@type table
+	folds = {
+		---@type boolean
+		enabled = false,
+		---@type "markdown_headers"
+		mode = "markdown_headers",
+		---@type boolean
+		start_open = true,
+		---@type string
+		header_pattern = "^%s*#+%s+",
+	},
 	---@type table<'execute_curl', string>
 	mappings = {
 		execute_curl = "<CR>",

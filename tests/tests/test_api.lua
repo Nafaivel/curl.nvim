@@ -155,6 +155,31 @@ T["api"]["export resolves nested variables inside directives"] = function()
   MiniTest.expect.equality(table.concat(output, "\n"), "curl http://127.0.0.1:9200/api/v1/buyback/daily -sSL")
 end
 
+T["api"]["export escapes unquoted ampersands in query strings"] = function()
+  child.lua([[
+    require("curl").open_curl_tab()
+  ]])
+  child.api.nvim_buf_set_lines(0, 0, -1, false, {
+    "---host=127.0.0.1",
+    "---LIMITLESS_ACCOUNT_API_PORT=8888",
+    "---accounts_url=http://$host:$LIMITLESS_ACCOUNT_API_PORT",
+    "---from=2026-02-14",
+    "---to=2026-02-16",
+    "curl $accounts_url/api/v1/buyback/range?from=$from&to=$to",
+  })
+  child.cmd("normal! 6G")
+  child.lua([[
+    require("curl").export_curl()
+  ]])
+
+  child.cmd("wincmd l")
+  local output = child.api.nvim_buf_get_lines(0, 0, -1, false)
+  MiniTest.expect.equality(
+    table.concat(output, "\n"),
+    "curl http://127.0.0.1:8888/api/v1/buyback/range?from=2026-02-14\\&to=2026-02-16 -sSL"
+  )
+end
+
 T["api"]["export resolves relative source file from open-time root"] = function()
   local temp_dir = vim.fn.tempname()
   vim.fn.mkdir(temp_dir, "p")

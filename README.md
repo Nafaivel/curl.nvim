@@ -244,6 +244,8 @@ Variables are also expanded inside auto-quoted JSON bodies (multiline body style
 Both `$VAR` and `${VAR}` are supported. Missing variables expand to an empty string.
 Directive values can reference previously defined variables and environment variables, for example:
 `---accounts_url=http://$host:$LIMITLESS_ACCOUNT_API_PORT`.
+Unquoted `&` in command lines are shell-escaped automatically (for example query strings) so
+`...?...&...` is executed/exported safely.
 
 You can source env files with `---source=...`.
 Supported path formats are absolute paths, `~/...`, `$HOME/...`, and relative paths.

@@ -58,6 +58,46 @@ local function trim(line)
 	return line:match("^%s*(.-)%s*$")
 end
 
+---@param text string
+---@return string
+local function escape_unquoted_ampersands(text)
+	local out = {}
+	local i = 1
+	local n = #text
+	local in_single_quote = false
+	local in_double_quote = false
+
+	while i <= n do
+		local c = text:sub(i, i)
+
+		if c == "'" and not in_double_quote then
+			in_single_quote = not in_single_quote
+			table.insert(out, c)
+			i = i + 1
+		elseif c == '"' and not in_single_quote then
+			in_double_quote = not in_double_quote
+			table.insert(out, c)
+			i = i + 1
+		elseif c == "\\" and not in_single_quote then
+			table.insert(out, c)
+			if i < n then
+				table.insert(out, text:sub(i + 1, i + 1))
+				i = i + 2
+			else
+				i = i + 1
+			end
+		elseif c == "&" and not in_single_quote and not in_double_quote then
+			table.insert(out, "\\&")
+			i = i + 1
+		else
+			table.insert(out, c)
+			i = i + 1
+		end
+	end
+
+	return table.concat(out)
+end
+
 ---@param line string
 ---@param variables table<string, string>
 ---@return string
@@ -232,7 +272,8 @@ M.parse_curl_command = function(cursor_pos, lines)
 		table.insert(selection, flag)
 	end
 
-	return vim.fn.join(selection, " ")
+	local command = vim.fn.join(selection, " ")
+	return escape_unquoted_ampersands(command)
 end
 
 return M

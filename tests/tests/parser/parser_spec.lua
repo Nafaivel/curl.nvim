@@ -316,11 +316,25 @@ describe("Has feature", function()
     }
 
     local expected_command =
-      "curl -X POST http://127.0.0.1:9200/admin/sync/day -H 'Content-Type: application/json' -d '{ \"url\":\"http://127.0.0.1:9200/admin/sync/day\" }'"
+      "curl -X POST $baseurl/admin/sync/day -H 'Content-Type: application/json' -d '{ \"url\":\"http://127.0.0.1:9200/admin/sync/day\" }'"
 
     for index = 4, #input_buffer do
       local parsed_command = parser.parse_curl_command(index, input_buffer)
       test_util.assert_commands(expected_command, parsed_command)
     end
+  end)
+
+  it("escapes unquoted ampersands in command line query strings", function()
+    local input_buffer = {
+      "---from=2026-02-14",
+      "---to=2026-02-16",
+      "curl http://127.0.0.1:8888/api/v1/buyback/range?from=$from&to=$to",
+    }
+
+    local expected_command =
+      "curl http://127.0.0.1:8888/api/v1/buyback/range?from=$from\\&to=$to"
+
+    local parsed_command = parser.parse_curl_command(3, input_buffer)
+    test_util.assert_commands(expected_command, parsed_command)
   end)
 end)

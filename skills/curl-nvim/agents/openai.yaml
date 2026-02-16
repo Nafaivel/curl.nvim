@@ -1,0 +1,4 @@
+interface:
+  display_name: "curl.nvim Workflow"
+  short_description: "Author, export, and execute .curl requests"
+  default_prompt: "Use $curl-nvim to resolve, export, and execute curl commands from .curl files."

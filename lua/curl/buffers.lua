@@ -238,6 +238,10 @@ M.setup_buf_vars = function(lines, upper_bound, bufnr)
 		end
 
 		local k, v = line:match("^%s*%-%-%-%s*([^=]+)=(.*)")
+		if k and v then
+			k = trim(k)
+			v = trim(v)
+		end
 		if k and v and k ~= "source" then
 			vim.env[k] = v
 		end

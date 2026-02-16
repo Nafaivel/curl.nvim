@@ -204,4 +204,22 @@ T["api"]["execute aborts when source file is missing"] = function()
 
   child.fn.jobstart = mock_pre
 end
+
+T["api"]["export supports directive with spaces after dashes"] = function()
+  child.lua([[
+    require("curl").open_curl_tab()
+  ]])
+  child.api.nvim_buf_set_lines(0, 0, -1, false, {
+    "--- crematorium = http://127.0.0.1:9200",
+    "curl $crematorium/healthz",
+  })
+  child.cmd("normal! 2G")
+  child.lua([[
+    require("curl").export_curl()
+  ]])
+
+  child.cmd("wincmd l")
+  local output = child.api.nvim_buf_get_lines(0, 0, -1, false)
+  MiniTest.expect.equality(table.concat(output, "\n"), "curl http://127.0.0.1:9200/healthz -sSL")
+end
 return T

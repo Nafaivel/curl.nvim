@@ -210,7 +210,8 @@ curl -X POST https://jsonplaceholder.typicode.com/posts
 </details>
 
 ### 💪 Variables
-Environment variables can be stted in file with `---variable_name=value` syntax
+Environment variables can be stted in file with `---variable_name=value` syntax.
+Spacing is supported, so `--- variable_name = value` works as well.
 
 Variables are also expanded inside auto-quoted JSON bodies (multiline body style after `-d`).
 Both `$VAR` and `${VAR}` are supported. Missing variables expand to an empty string.

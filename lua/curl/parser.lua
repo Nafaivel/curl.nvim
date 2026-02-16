@@ -53,6 +53,12 @@ local function is_commented(line)
 end
 
 ---@param line string
+---@return string
+local function trim(line)
+	return line:match("^%s*(.-)%s*$")
+end
+
+---@param line string
 ---@param variables table<string, string>
 ---@return string
 local function expand_variables(line, variables)
@@ -88,6 +94,11 @@ local function collect_variables(lines, upper_bound)
 		end
 
 		local key, value = line:match("^%s*%-%-%-%s*([^=]+)=(.*)")
+		if key and value then
+			key = trim(key)
+			value = trim(value)
+		end
+
 		if key and value and key ~= "source" then
 			variables[key] = value
 		end

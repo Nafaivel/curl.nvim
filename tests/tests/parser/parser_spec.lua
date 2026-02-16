@@ -281,4 +281,24 @@ describe("Has feature", function()
       test_util.assert_commands(expected_command, parsed_command)
     end
   end)
+
+  it("expands json variables declared with spaces after dashes", function()
+    local input_buffer = {
+      "--- day = 2026-02-14",
+      "curl -X POST http://127.0.0.1:9200/admin/sync/day",
+      "-H 'Content-Type: application/json'",
+      "-d",
+      "{",
+      '"day":"$day"',
+      "}",
+    }
+
+    local expected_command =
+      "curl -X POST http://127.0.0.1:9200/admin/sync/day -H 'Content-Type: application/json' -d '{ \"day\":\"2026-02-14\" }'"
+
+    for index = 2, #input_buffer do
+      local parsed_command = parser.parse_curl_command(index, input_buffer)
+      test_util.assert_commands(expected_command, parsed_command)
+    end
+  end)
 end)

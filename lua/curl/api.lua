@@ -212,9 +212,14 @@ M.close_curl_tab = function(force)
 	buffers.close_curl_tab(force)
 end
 
----@return integer, table, string
+---@return integer, table, string, integer|nil, string|nil
 local function parse_curl_command_under_cursor()
-	local cursor_pos, lines = buffers.get_command_buffer_and_pos()
+	local cursor_pos, lines, bufnr = buffers.get_command_buffer_and_pos()
+	local setup_ok, setup_err = buffers.setup_buf_vars(lines, cursor_pos, bufnr)
+	if not setup_ok then
+		return cursor_pos, lines, "", nil, setup_err
+	end
+
 	local curl_command = parser.parse_curl_command(cursor_pos, lines)
 
 	local curl_alias = config.get("curl_binary")
@@ -222,12 +227,17 @@ local function parse_curl_command_under_cursor()
 		curl_command = curl_command:gsub("^curl", curl_alias)
 	end
 
-	return cursor_pos, lines, curl_command
+	return cursor_pos, lines, curl_command, bufnr, nil
 end
 
 M.execute_curl = function()
 	local executed_from_win = vim.api.nvim_get_current_win()
-	local cursor_pos, lines, curl_command = parse_curl_command_under_cursor()
+	local cursor_pos, lines, curl_command, _, setup_err = parse_curl_command_under_cursor()
+
+	if setup_err then
+		notify.error(setup_err)
+		return
+	end
 
 	if curl_command == "" then
 		notify.error("No curl command found under the cursor")
@@ -236,7 +246,6 @@ M.execute_curl = function()
 
 	local output = ""
 	local error = ""
-	buffers.setup_buf_vars(lines, cursor_pos)
 
 	local commands = shell.get_default_shell()
 	if commands ~= nil and type(commands) == "table" then
@@ -281,14 +290,18 @@ end
 
 M.export_curl = function()
 	local executed_from_win = vim.api.nvim_get_current_win()
-	local cursor_pos, lines, curl_command = parse_curl_command_under_cursor()
+	local _, _, curl_command, _, setup_err = parse_curl_command_under_cursor()
+
+	if setup_err then
+		notify.error(setup_err)
+		return
+	end
 
 	if curl_command == "" then
 		notify.error("No curl command found under the cursor")
 		return
 	end
 
-	buffers.setup_buf_vars(lines, cursor_pos)
 	local expanded_command = expand_shell_variables(curl_command)
 	buffers.set_output_buffer_content(executed_from_win, { expanded_command }, "sh")
 end

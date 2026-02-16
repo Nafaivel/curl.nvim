@@ -225,12 +225,22 @@ Environment variables can be stted in file with `---variable_name=value` syntax
 Variables are also expanded inside auto-quoted JSON bodies (multiline body
 style after `-d`). Both `$VAR` and `${VAR}` are supported. Missing variables
 expand to an empty string.
+You can source env files with `---source=...`.
+Supported path formats are absolute paths, `~/...`, `$HOME/...`, and relative
+paths.
+Relative paths are resolved from:
+- scoped/plugin-managed curl buffers: the working directory from when the
+  buffer was opened
+- manually opened `.curl` files: that file's directory
+If a `---source` file is missing or unreadable, execute/export aborts with an
+error.
 
 See example ~
 
 >bash
     ---baseurl=http://127.0.0.1:8000
     ---day=2026-02-14
+    ---source=.env
     
     curl $baseurl/collections
     

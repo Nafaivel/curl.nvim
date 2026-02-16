@@ -63,6 +63,104 @@ local open_command_buffer = function(command_file)
 	return new_bufnr, new_win
 end
 
+---@param line string
+---@return string
+local function trim(line)
+	return line:match("^%s*(.-)%s*$")
+end
+
+---@param name string
+---@return string
+local function lookup_env(name)
+	local value = vim.env[name]
+	if value == nil or value == vim.NIL then
+		return ""
+	end
+
+	return value
+end
+
+---@param path string
+---@return string
+local function expand_path_variables(path)
+	local expanded = path:gsub("%${([%w_]+)}", lookup_env)
+	expanded = expanded:gsub("%$([%w_]+)", lookup_env)
+
+	local home = lookup_env("HOME")
+	if expanded == "~" then
+		return home
+	end
+
+	if expanded:sub(1, 2) == "~/" then
+		return home .. expanded:sub(2)
+	end
+
+	return expanded
+end
+
+---@param bufnr integer
+---@return string
+local function resolve_base_dir(bufnr)
+	local ok, root_anchor = pcall(vim.api.nvim_buf_get_var, bufnr, "curl_root_anchor")
+	if ok and type(root_anchor) == "string" and root_anchor ~= "" then
+		return root_anchor
+	end
+
+	local buf_name = vim.api.nvim_buf_get_name(bufnr)
+	if buf_name ~= "" then
+		return vim.fn.fnamemodify(buf_name, ":p:h")
+	end
+
+	return vim.fn.getcwd()
+end
+
+---@param raw_path string
+---@param bufnr integer
+---@return string
+local function resolve_source_path(raw_path, bufnr)
+	local expanded = expand_path_variables(trim(raw_path))
+	if expanded == "" then
+		return ""
+	end
+
+	if expanded:sub(1, 1) ~= "/" then
+		expanded = resolve_base_dir(bufnr) .. "/" .. expanded
+	end
+
+	return vim.fn.fnamemodify(expanded, ":p")
+end
+
+---@param filepath string
+---@return boolean, string|nil
+local function load_env_file(filepath)
+	local file = io.open(filepath, "r")
+	if file == nil then
+		return false, "Failed to source env file: " .. filepath
+	end
+
+	for line in file:lines() do
+		local stripped = trim(line)
+		if stripped ~= "" and stripped:sub(1, 1) ~= "#" then
+			stripped = stripped:gsub("^export%s+", "")
+			local key, value = stripped:match("^([%a_][%w_]*)=(.*)$")
+			if key and value then
+				local unwrapped = trim(value)
+				local first_char = unwrapped:sub(1, 1)
+				local last_char = unwrapped:sub(-1)
+				if (#unwrapped >= 2 and first_char == "'" and last_char == "'")
+					or (#unwrapped >= 2 and first_char == '"' and last_char == '"')
+				then
+					unwrapped = unwrapped:sub(2, -2)
+				end
+				vim.env[key] = unwrapped
+			end
+		end
+	end
+
+	file:close()
+	return true, nil
+end
+
 local result_open_in_current_tab = function(res_buf_name)
 	local buffer = vim.fn.bufnr(res_buf_name, false)
 
@@ -115,25 +213,46 @@ local open_result_buffer = function(called_from_win_id)
 end
 
 ---sets envs from parsed lines output
----in style like `---var=val`
+---in style like `---var=val` or `---source=.env`
 ---@param lines [string]
 ---@param upper_bound integer | nil
-M.setup_buf_vars = function(lines, upper_bound)
+---@param bufnr integer|nil
+---@return boolean, string|nil
+M.setup_buf_vars = function(lines, upper_bound, bufnr)
 	upper_bound = upper_bound or #lines
+	bufnr = bufnr or vim.api.nvim_get_current_buf()
 	for idx = 1, upper_bound do
 		local line = lines[idx]
-		if not line then break end
+		if not line then
+			break
+		end
+
+		local source_path = line:match("^%s*%-%-%-%s*source%s*=%s*(.+)$")
+		if source_path then
+			local resolved_path = resolve_source_path(source_path, bufnr)
+			local ok, err = load_env_file(resolved_path)
+			if not ok then
+				return false, err
+			end
+			goto continue
+		end
+
 		local k, v = line:match("^%s*%-%-%-%s*([^=]+)=(.*)")
-		if k and v then
+		if k and v and k ~= "source" then
 			vim.env[k] = v
 		end
+
+		::continue::
 	end
+
+	return true, nil
 end
 
 M.setup_curl_tab_for_file = function(filename)
 	open_or_goto_curl_tab()
 
 	local new_buf_id, current_win = open_command_buffer(filename)
+	vim.api.nvim_buf_set_var(new_buf_id, "curl_root_anchor", vim.fn.getcwd())
 	COMMAND_BUF_ID = new_buf_id
 end
 
@@ -149,7 +268,7 @@ M.get_command_buffer_and_pos = function()
 
 	local cursor_pos = vim.api.nvim_win_get_cursor(0)[1]
 
-	return cursor_pos, lines
+	return cursor_pos, lines, left_buf
 end
 
 ---@param executed_from_win integer

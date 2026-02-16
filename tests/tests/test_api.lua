@@ -134,4 +134,74 @@ T["api"]["export resolves scoped variables in command text"] = function()
     "curl http://127.0.0.1:9200/admin/sync/day -H \"Content-Type: application/json\" -u admin:admin -d '{\"day\":\"2026-02-14\"}' -sSL"
   )
 end
+
+T["api"]["export resolves relative source file from open-time root"] = function()
+  local temp_dir = vim.fn.tempname()
+  vim.fn.mkdir(temp_dir, "p")
+  local env_file = temp_dir .. "/.curl.env"
+  local file = io.open(env_file, "w")
+  file:write("CREMATORIUM=http://127.0.0.1:9200\n")
+  file:close()
+
+  child.cmd("cd " .. temp_dir)
+  child.lua([[
+    require("curl").open_curl_tab()
+  ]])
+  child.cmd("cd /")
+  child.api.nvim_buf_set_lines(0, 0, -1, false, {
+    "---source=.curl.env",
+    "curl $CREMATORIUM/healthz",
+  })
+  child.cmd("normal! 2G")
+  child.lua([[
+    require("curl").export_curl()
+  ]])
+
+  child.cmd("wincmd l")
+  local output = child.api.nvim_buf_get_lines(0, 0, -1, false)
+  MiniTest.expect.equality(table.concat(output, "\n"), "curl http://127.0.0.1:9200/healthz -sSL")
+end
+
+T["api"]["export aborts when source file is missing"] = function()
+  child.lua([[
+    require("curl").open_curl_tab()
+  ]])
+  child.api.nvim_buf_set_lines(0, 0, -1, false, {
+    "---source=/tmp/curl.nvim-missing-source-file",
+    "curl $CREMATORIUM/healthz",
+  })
+  child.cmd("normal! 2G")
+
+  local windows_before = #child.api.nvim_tabpage_list_wins(0)
+  child.lua([[
+    require("curl").export_curl()
+  ]])
+  local windows_after = #child.api.nvim_tabpage_list_wins(0)
+  MiniTest.expect.equality(windows_after, windows_before)
+end
+
+T["api"]["execute aborts when source file is missing"] = function()
+  child.lua([[
+    require("curl").open_curl_tab()
+  ]])
+  child.api.nvim_buf_set_lines(0, 0, -1, false, {
+    "---source=/tmp/curl.nvim-missing-source-file",
+    "curl http://127.0.0.1:9200/healthz",
+  })
+  child.cmd("normal! 2G")
+
+  local called = false
+  local mock_pre = child.fn.jobstart
+  child.fn.jobstart = function(_, _)
+    called = true
+    return 1
+  end
+
+  child.lua([[
+    require("curl").execute_curl()
+  ]])
+  MiniTest.expect.equality(called, false)
+
+  child.fn.jobstart = mock_pre
+end
 return T

@@ -88,7 +88,7 @@ local function collect_variables(lines, upper_bound)
 		end
 
 		local key, value = line:match("^%s*%-%-%-%s*([^=]+)=(.*)")
-		if key and value then
+		if key and value and key ~= "source" then
 			variables[key] = value
 		end
 	end

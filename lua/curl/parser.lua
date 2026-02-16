@@ -81,6 +81,22 @@ local function expand_variables(line, variables)
 	return expanded
 end
 
+---@param value string
+---@param variables table<string, string>
+---@return string
+local function expand_directive_value(value, variables)
+	local expanded = value
+	for _ = 1, 10 do
+		local next_value = expand_variables(expanded, variables)
+		if next_value == expanded then
+			break
+		end
+		expanded = next_value
+	end
+
+	return expanded
+end
+
 ---@param lines table
 ---@param upper_bound integer
 ---@return table<string, string>
@@ -100,7 +116,7 @@ local function collect_variables(lines, upper_bound)
 		end
 
 		if key and value and key ~= "source" then
-			variables[key] = value
+			variables[key] = expand_directive_value(value, variables)
 		end
 	end
 

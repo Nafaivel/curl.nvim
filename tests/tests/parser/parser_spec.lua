@@ -301,4 +301,26 @@ describe("Has feature", function()
       test_util.assert_commands(expected_command, parsed_command)
     end
   end)
+
+  it("expands nested directive variables in auto-quoted json body", function()
+    local input_buffer = {
+      "---host=127.0.0.1",
+      "---port=9200",
+      "---baseurl=http://$host:$port",
+      "curl -X POST $baseurl/admin/sync/day",
+      "-H 'Content-Type: application/json'",
+      "-d",
+      "{",
+      '"url":"$baseurl/admin/sync/day"',
+      "}",
+    }
+
+    local expected_command =
+      "curl -X POST http://127.0.0.1:9200/admin/sync/day -H 'Content-Type: application/json' -d '{ \"url\":\"http://127.0.0.1:9200/admin/sync/day\" }'"
+
+    for index = 4, #input_buffer do
+      local parsed_command = parser.parse_curl_command(index, input_buffer)
+      test_util.assert_commands(expected_command, parsed_command)
+    end
+  end)
 end)

@@ -242,6 +242,8 @@ Spacing is supported, so `--- variable_name = value` works as well.
 
 Variables are also expanded inside auto-quoted JSON bodies (multiline body style after `-d`).
 Both `$VAR` and `${VAR}` are supported. Missing variables expand to an empty string.
+Directive values can reference previously defined variables and environment variables, for example:
+`---accounts_url=http://$host:$LIMITLESS_ACCOUNT_API_PORT`.
 
 You can source env files with `---source=...`.
 Supported path formats are absolute paths, `~/...`, `$HOME/...`, and relative paths.

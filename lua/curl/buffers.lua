@@ -80,11 +80,26 @@ local function lookup_env(name)
 	return value
 end
 
+---@param value string
+---@return string
+local function expand_env_variables(value)
+	local expanded = value
+	for _ = 1, 10 do
+		local next_value = expanded:gsub("%${([%w_]+)}", lookup_env)
+		next_value = next_value:gsub("%$([%w_]+)", lookup_env)
+		if next_value == expanded then
+			break
+		end
+		expanded = next_value
+	end
+
+	return expanded
+end
+
 ---@param path string
 ---@return string
 local function expand_path_variables(path)
-	local expanded = path:gsub("%${([%w_]+)}", lookup_env)
-	expanded = expanded:gsub("%$([%w_]+)", lookup_env)
+	local expanded = expand_env_variables(path)
 
 	local home = lookup_env("HOME")
 	if expanded == "~" then
@@ -243,7 +258,7 @@ M.setup_buf_vars = function(lines, upper_bound, bufnr)
 			v = trim(v)
 		end
 		if k and v and k ~= "source" then
-			vim.env[k] = v
+			vim.env[k] = expand_env_variables(v)
 		end
 
 		::continue::

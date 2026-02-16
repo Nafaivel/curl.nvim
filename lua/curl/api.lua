@@ -8,6 +8,47 @@ local output_parser = require("curl.output_parser")
 local notify = require("curl.notifications")
 local shell = require("curl.shell_utils")
 
+---@param stdout_lines table
+---@param stderr_output string
+---@return table
+local function include_stderr_output(stdout_lines, stderr_output)
+	if stderr_output == "" then
+		return stdout_lines
+	end
+
+	local stderr_lines = vim.split(stderr_output, "\n", { plain = true, trimempty = false })
+	stderr_lines = vim.tbl_filter(function(line)
+		return line ~= ""
+	end, stderr_lines)
+	vim.list_extend(stderr_lines, stdout_lines)
+	return stderr_lines
+end
+
+---@param lines table
+---@param drop_empty boolean
+---@return table
+local function normalize_lines(lines, drop_empty)
+	local normalized = {}
+	for _, line in ipairs(lines) do
+		local cleaned = line:gsub("\r$", "")
+		if not (drop_empty and cleaned == "") then
+			table.insert(normalized, cleaned)
+		end
+	end
+	return normalized
+end
+
+---@param lines table
+---@return table
+local function flatten_multiline_lines(lines)
+	local flattened = {}
+	for _, line in ipairs(lines) do
+		local split = vim.split(line, "\n", { plain = true, trimempty = false })
+		vim.list_extend(flattened, split)
+	end
+	return normalize_lines(flattened, false)
+end
+
 M.create_global_collection = function()
 	vim.ui.input({ prompt = "Collection name: " }, function(input)
 		if input == nil then
@@ -125,7 +166,8 @@ M.execute_curl = function()
 		on_exit = function(_, exit_code, _)
 			if exit_code ~= 0 then
 				notify.error("Curl failed")
-				buffers.set_output_buffer_content(executed_from_win, vim.split(error, "\n"))
+				local error_lines = vim.split(error, "\n", { plain = true, trimempty = false })
+				buffers.set_output_buffer_content(executed_from_win, normalize_lines(error_lines, true))
 				return
 			end
 
@@ -138,13 +180,16 @@ M.execute_curl = function()
 			end
 
 			local parsed_output = output_parser.parse_curl_output(output)
-			buffers.set_output_buffer_content(executed_from_win, parsed_output)
+			if config.get("show_stderr") then
+				parsed_output = include_stderr_output(parsed_output, error)
+			end
+			buffers.set_output_buffer_content(executed_from_win, flatten_multiline_lines(parsed_output))
 		end,
 		on_stdout = function(_, data, _)
-			output = output .. vim.fn.join(data)
+			output = output .. vim.fn.join(data, "\n")
 		end,
 		on_stderr = function(_, data, _)
-			error = error .. vim.fn.join(data)
+			error = error .. vim.fn.join(data, "\n")
 		end,
 	})
 end

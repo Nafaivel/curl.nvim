@@ -122,6 +122,8 @@ Or if you use [Lazy](https://github.com/folke/lazy.nvim), just pass the table in
   curl_binary = nil,
   -- Print elapsed time in seconds if request duration exceeds this limit or don't if nil
   show_request_duration_limit = nil,
+  -- Include stderr before stdout in the output buffer for successful requests
+  show_stderr = false,
   -- Specify how to open curl
   -- use "tab" to open in separate tab
   -- use "split" to open in horizontal split

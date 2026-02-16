@@ -138,4 +138,79 @@ T["Config"]["default output split direction is vertical"] = function()
   test_util.assert_equals("vertical", output_split_direction)
 end
 
+T["Config"]["default show_stderr is false"] = function()
+  child.lua([[require("curl").setup({})]])
+  local show_stderr = child.lua_get([[require("curl.config").get("show_stderr")]])
+
+  test_util.assert_equals(false, show_stderr)
+end
+
+T["Config"]["can include stderr in output when configured"] = function()
+  child.lua([[require("curl").setup({ open_with = "split", show_stderr = true })]])
+
+  local mock_pre = child.fn.jobstart
+  child.fn.jobstart = function(_, opts)
+    opts.on_stdout(nil, { "stdout line" }, nil)
+    opts.on_stderr(nil, { "stderr line" }, nil)
+    opts.on_exit(nil, 0, nil)
+    return 1
+  end
+
+  child.lua([[require("curl").open_curl_tab()]])
+  child.api.nvim_buf_set_lines(0, 0, -1, false, { "curl file:///etc/hosts" })
+  child.lua([[require("curl").execute_curl()]])
+
+  child.cmd("wincmd l")
+  local output = child.api.nvim_buf_get_lines(0, 0, -1, false)
+
+  test_util.assert_equals("stderr line\nstdout line", table.concat(output, "\n"))
+
+  child.fn.jobstart = mock_pre
+end
+
+T["Config"]["preserves newlines when stdout callback has multiple strings"] = function()
+  child.lua([[require("curl").setup({ open_with = "split", show_stderr = false })]])
+
+  local mock_pre = child.fn.jobstart
+  child.fn.jobstart = function(_, opts)
+    opts.on_stdout(nil, { "first line", "second line" }, nil)
+    opts.on_exit(nil, 0, nil)
+    return 1
+  end
+
+  child.lua([[require("curl").open_curl_tab()]])
+  child.api.nvim_buf_set_lines(0, 0, -1, false, { "curl file:///etc/hosts" })
+  child.lua([[require("curl").execute_curl()]])
+
+  child.cmd("wincmd l")
+  local output = child.api.nvim_buf_get_lines(0, 0, -1, false)
+
+  test_util.assert_equals("first line\nsecond line", table.concat(output, "\n"))
+
+  child.fn.jobstart = mock_pre
+end
+
+T["Config"]["normalizes verbose stderr CRLF artifacts"] = function()
+  child.lua([[require("curl").setup({ open_with = "split", show_stderr = true })]])
+
+  local mock_pre = child.fn.jobstart
+  child.fn.jobstart = function(_, opts)
+    opts.on_stderr(nil, { "* connected\r", "> Host: localhost\r", "" }, nil)
+    opts.on_stdout(nil, { "ok" }, nil)
+    opts.on_exit(nil, 0, nil)
+    return 1
+  end
+
+  child.lua([[require("curl").open_curl_tab()]])
+  child.api.nvim_buf_set_lines(0, 0, -1, false, { "curl file:///etc/hosts" })
+  child.lua([[require("curl").execute_curl()]])
+
+  child.cmd("wincmd l")
+  local output = child.api.nvim_buf_get_lines(0, 0, -1, false)
+
+  test_util.assert_equals("* connected\n> Host: localhost\nok", table.concat(output, "\n"))
+
+  child.fn.jobstart = mock_pre
+end
+
 return T

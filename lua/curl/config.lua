@@ -4,6 +4,8 @@ local default_config = {
 	default_flags = {},
 	---@type integer | nil
 	show_request_duration_limit = nil, -- show elapsed time if request duration exceeds this limit; don't show if nil
+	---@type boolean
+	show_stderr = false, -- include stderr before stdout in output buffer on successful requests
 	---@type string
 	curl_binary = nil,
 	---@type "tab"|"split"|"vsplit"|"buffer"

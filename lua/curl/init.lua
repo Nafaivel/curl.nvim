@@ -91,6 +91,10 @@ function M.setup(opts)
 		require("curl.api").close_curl_tab()
 	end, { desc = "Close tab for curl.nvim" })
 
+	vim.api.nvim_create_user_command("CurlExport", function()
+		require("curl.api").export_curl()
+	end, { desc = "Export curl command under cursor to output buffer" })
+
 	vim.api.nvim_set_hl(0, "CurlCommandHighlight", {
 		link = "Visual",
 	})

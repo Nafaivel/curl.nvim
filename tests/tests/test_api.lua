@@ -80,4 +80,58 @@ T["api"]["can open global buffer"] = function()
   local new_bufname = vim.api.nvim_buf_get_name(0)
   MiniTest.expect.equality(new_bufname:find("global"), nil)
 end
+
+T["api"]["can export curl under cursor"] = function()
+  child.lua([[
+    require("curl").open_curl_tab()
+    require("curl").set_curl_binary("/my/cool/curl")
+  ]])
+  child.api.nvim_buf_set_lines(0, 0, -1, false, { "curl http://127.0.0.1:9200/healthz" })
+
+  child.lua([[
+    require("curl").export_curl()
+  ]])
+
+  child.cmd("wincmd l")
+  local output = child.api.nvim_buf_get_lines(0, 0, -1, false)
+  MiniTest.expect.equality(table.concat(output, "\n"), "/my/cool/curl http://127.0.0.1:9200/healthz -sSL")
+  local filetype = child.lua_get([[vim.bo.filetype]])
+  MiniTest.expect.equality(filetype, "sh")
+end
+
+T["api"]["has CurlExport command"] = function()
+  child.lua([[
+    require("curl").open_curl_tab()
+    require("curl").set_curl_binary("othercurl")
+  ]])
+  child.api.nvim_buf_set_lines(0, 0, -1, false, { "curl http://127.0.0.1:9200/healthz" })
+  child.cmd("CurlExport")
+
+  child.cmd("wincmd l")
+  local output = child.api.nvim_buf_get_lines(0, 0, -1, false)
+  MiniTest.expect.equality(table.concat(output, "\n"), "othercurl http://127.0.0.1:9200/healthz -sSL")
+end
+
+T["api"]["export resolves scoped variables in command text"] = function()
+  child.lua([[
+    require("curl").open_curl_tab()
+  ]])
+  child.api.nvim_buf_set_lines(0, 0, -1, false, {
+    "---crematorium=http://127.0.0.1:9200",
+    "---day=2026-02-14",
+    "curl $crematorium/admin/sync/day -H \"Content-Type: application/json\" -u admin:admin -d",
+    '{"day":"$day"}',
+  })
+  child.cmd("normal! 4G")
+  child.lua([[
+    require("curl").export_curl()
+  ]])
+
+  child.cmd("wincmd l")
+  local output = child.api.nvim_buf_get_lines(0, 0, -1, false)
+  MiniTest.expect.equality(
+    table.concat(output, "\n"),
+    "curl http://127.0.0.1:9200/admin/sync/day -H \"Content-Type: application/json\" -u admin:admin -d '{\"day\":\"2026-02-14\"}' -sSL"
+  )
+end
 return T

@@ -152,8 +152,12 @@ M.get_command_buffer_and_pos = function()
 	return cursor_pos, lines
 end
 
-M.set_output_buffer_content = function(executed_from_win, content)
+---@param executed_from_win integer
+---@param content table
+---@param filetype string|nil
+M.set_output_buffer_content = function(executed_from_win, content, filetype)
 	open_result_buffer(executed_from_win)
+	vim.api.nvim_set_option_value("filetype", filetype or "json", { buf = OUTPUT_BUF_ID })
 	vim.api.nvim_buf_set_lines(OUTPUT_BUF_ID, 0, -1, false, content)
 end
 

@@ -61,6 +61,9 @@ For more detailed documentation, see examples under [Features](<README#✨ Featu
 " Open a picker to select a collection
 :CurlCollection global
 :CurlCollection scoped
+
+" Export the resolved curl command under the cursor to the output buffer
+:CurlExport
 ```
 
 These commands will open the curl.nvim tab. In the left buffer, you can paste or write curl
@@ -322,6 +325,9 @@ curl.close_curl_tab()
 -- Executes the curl command under the cursor when the command buffer is open
 -- Also executed by the "execute_curl" mapping, as seen in the configuration. Mapped to <CR> by default
 curl.execute_curl()
+
+-- Export the rendered/resolved curl command under the cursor to the output buffer
+curl.export_curl()
 
 --------------------
 

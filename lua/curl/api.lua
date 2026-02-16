@@ -49,6 +49,84 @@ local function flatten_multiline_lines(lines)
 	return normalize_lines(flattened, false)
 end
 
+---@param name string
+---@return string
+local function lookup_variable(name)
+	local value = vim.env[name]
+	if value == nil or value == vim.NIL then
+		return ""
+	end
+
+	return value
+end
+
+---@param text string
+---@return string
+local function expand_shell_variables(text)
+	local out = {}
+	local i = 1
+	local n = #text
+	local in_single_quote = false
+	local in_double_quote = false
+
+	while i <= n do
+		local c = text:sub(i, i)
+
+		if c == "'" and not in_double_quote then
+			in_single_quote = not in_single_quote
+			table.insert(out, c)
+			i = i + 1
+		elseif c == '"' and not in_single_quote then
+			in_double_quote = not in_double_quote
+			table.insert(out, c)
+			i = i + 1
+		elseif c == "\\" and not in_single_quote then
+			table.insert(out, c)
+			if i < n then
+				table.insert(out, text:sub(i + 1, i + 1))
+				i = i + 2
+			else
+				i = i + 1
+			end
+		elseif c == "$" and not in_single_quote then
+			local next_char = i < n and text:sub(i + 1, i + 1) or ""
+
+			if next_char == "{" then
+				local start_idx = i + 2
+				local end_idx = text:find("}", start_idx, true)
+				if end_idx ~= nil then
+					local var_name = text:sub(start_idx, end_idx - 1)
+					if var_name:match("^[%w_]+$") ~= nil then
+						table.insert(out, lookup_variable(var_name))
+						i = end_idx + 1
+					else
+						table.insert(out, text:sub(i, end_idx))
+						i = end_idx + 1
+					end
+				else
+					table.insert(out, c)
+					i = i + 1
+				end
+			else
+				local _, end_idx = text:find("^[%w_]+", i + 1)
+				if end_idx ~= nil then
+					local var_name = text:sub(i + 1, end_idx)
+					table.insert(out, lookup_variable(var_name))
+					i = end_idx + 1
+				else
+					table.insert(out, c)
+					i = i + 1
+				end
+			end
+		else
+			table.insert(out, c)
+			i = i + 1
+		end
+	end
+
+	return table.concat(out)
+end
+
 M.create_global_collection = function()
 	vim.ui.input({ prompt = "Collection name: " }, function(input)
 		if input == nil then
@@ -134,8 +212,8 @@ M.close_curl_tab = function(force)
 	buffers.close_curl_tab(force)
 end
 
-M.execute_curl = function()
-	local executed_from_win = vim.api.nvim_get_current_win()
+---@return integer, table, string
+local function parse_curl_command_under_cursor()
 	local cursor_pos, lines = buffers.get_command_buffer_and_pos()
 	local curl_command = parser.parse_curl_command(cursor_pos, lines)
 
@@ -143,6 +221,13 @@ M.execute_curl = function()
 	if curl_alias ~= nil then
 		curl_command = curl_command:gsub("^curl", curl_alias)
 	end
+
+	return cursor_pos, lines, curl_command
+end
+
+M.execute_curl = function()
+	local executed_from_win = vim.api.nvim_get_current_win()
+	local cursor_pos, lines, curl_command = parse_curl_command_under_cursor()
 
 	if curl_command == "" then
 		notify.error("No curl command found under the cursor")
@@ -192,6 +277,20 @@ M.execute_curl = function()
 			error = error .. vim.fn.join(data, "\n")
 		end,
 	})
+end
+
+M.export_curl = function()
+	local executed_from_win = vim.api.nvim_get_current_win()
+	local cursor_pos, lines, curl_command = parse_curl_command_under_cursor()
+
+	if curl_command == "" then
+		notify.error("No curl command found under the cursor")
+		return
+	end
+
+	buffers.setup_buf_vars(lines, cursor_pos)
+	local expanded_command = expand_shell_variables(curl_command)
+	buffers.set_output_buffer_content(executed_from_win, { expanded_command }, "sh")
 end
 
 M.set_curl_binary = function(binary_name)

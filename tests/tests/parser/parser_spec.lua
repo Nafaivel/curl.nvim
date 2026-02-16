@@ -242,4 +242,43 @@ describe("Has feature", function()
       test_util.assert_commands(expected_command, parsed_command)
     end
   end)
+
+  it("expands variables in auto-quoted json body", function()
+    local input_buffer = {
+      "---day=2026-02-14",
+      "curl -X POST http://127.0.0.1:9200/admin/sync/day",
+      "-H 'Content-Type: application/json'",
+      "-d",
+      "{",
+      '"day":"${day}","legacy":"$day"',
+      "}",
+    }
+
+    local expected_command =
+      "curl -X POST http://127.0.0.1:9200/admin/sync/day -H 'Content-Type: application/json' -d '{ \"day\":\"2026-02-14\",\"legacy\":\"2026-02-14\" }'"
+
+    for index = 2, #input_buffer do
+      local parsed_command = parser.parse_curl_command(index, input_buffer)
+      test_util.assert_commands(expected_command, parsed_command)
+    end
+  end)
+
+  it("expands missing variables to empty string in auto-quoted json body", function()
+    local input_buffer = {
+      "curl -X POST http://127.0.0.1:9200/admin/sync/day",
+      "-H 'Content-Type: application/json'",
+      "-d",
+      "{",
+      '"day":"$missing_day"',
+      "}",
+    }
+
+    local expected_command =
+      "curl -X POST http://127.0.0.1:9200/admin/sync/day -H 'Content-Type: application/json' -d '{ \"day\":\"\" }'"
+
+    for index = 1, #input_buffer do
+      local parsed_command = parser.parse_curl_command(index, input_buffer)
+      test_util.assert_commands(expected_command, parsed_command)
+    end
+  end)
 end)

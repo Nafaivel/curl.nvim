@@ -52,11 +52,56 @@ local function is_commented(line)
 	return line:match("^%s*%#") ~= nil
 end
 
+---@param line string
+---@param variables table<string, string>
+---@return string
+local function expand_variables(line, variables)
+	local lookup = function(name)
+		local from_buffer = variables[name]
+		if from_buffer ~= nil then
+			return from_buffer
+		end
+
+		local from_env = vim.env[name]
+		if from_env == nil or from_env == vim.NIL then
+			return ""
+		end
+
+		return from_env
+	end
+
+	local expanded = line:gsub("%${([%w_]+)}", lookup)
+	expanded = expanded:gsub("%$([%w_]+)", lookup)
+	return expanded
+end
+
+---@param lines table
+---@param upper_bound integer
+---@return table<string, string>
+local function collect_variables(lines, upper_bound)
+	local variables = {}
+
+	for idx = 1, upper_bound do
+		local line = lines[idx]
+		if line == nil then
+			break
+		end
+
+		local key, value = line:match("^%s*%-%-%-%s*([^=]+)=(.*)")
+		if key and value then
+			variables[key] = value
+		end
+	end
+
+	return variables
+end
+
 ---comment removes trailing \ character from newlines,
 ---and adds single quotes to the beginning and end of json strings if they are missing
 ---@param lines table
+---@param variables table<string, string>
 ---@return table
-local format_command_for_curl = function(lines)
+local format_command_for_curl = function(lines, variables)
 	local cleaned_lines = {}
 
 	local opening_json_char, closing_json_char
@@ -66,6 +111,7 @@ local format_command_for_curl = function(lines)
 		local cleaned_line = remove_trailing_forwardslash(line)
 
 		if found_first_json_char(json_nesting_stack, cleaned_line) then
+			cleaned_line = expand_variables(cleaned_line, variables)
 			opening_json_char = cleaned_line:sub(1, 1)
 			closing_json_char = opening_json_char == "[" and "]" or "}"
 			cleaned_line = "'" .. cleaned_line
@@ -74,6 +120,7 @@ local format_command_for_curl = function(lines)
 				cleaned_line = cleaned_line .. "'"
 			end
 		elseif #json_nesting_stack > 0 then
+			cleaned_line = expand_variables(cleaned_line, variables)
 			local found_json_end =
 				is_line_json_close(json_nesting_stack, opening_json_char, closing_json_char, cleaned_line)
 			if found_json_end then
@@ -132,7 +179,8 @@ M.parse_curl_command = function(cursor_pos, lines)
 		return ""
 	end
 
-	local cleaned_lines = format_command_for_curl(lines)
+	local variables = collect_variables(lines, cursor_pos)
+	local cleaned_lines = format_command_for_curl(lines, variables)
 
 	local first_line = find_backward(cursor_pos, cleaned_lines)
 	local last_line = find_forwards(cursor_pos, cleaned_lines)

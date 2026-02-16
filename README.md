@@ -209,16 +209,25 @@ curl -X POST https://jsonplaceholder.typicode.com/posts
 ### 💪 Variables
 Environment variables can be stted in file with `---variable_name=value` syntax
 
+Variables are also expanded inside auto-quoted JSON bodies (multiline body style after `-d`).
+Both `$VAR` and `${VAR}` are supported. Missing variables expand to an empty string.
+
 <details>
 <summary>See example</summary>
 
 ```bash
 ---baseurl=http://127.0.0.1:8000
+---day=2026-02-14
 
 curl $baseurl/collections
 
 ---collection_name=test
 curl $baseurl/collections/$collection_name
+
+curl $baseurl/admin/sync/day -H "Content-Type: application/json" -d
+{
+  "day": "$day"
+}
 ```
 
 </details>
